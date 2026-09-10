@@ -1,392 +1,103 @@
 <template>
-  <div class="page">
-    <header class="hero" v-if="showSettingsSection && !quizRunning">
-      <h1 class="hero__eyebrow">Ultimate</h1>
-      <h1 class="hero__title">Mental Math Trainer</h1>
-      <h2 class="hero__subtitle">Build sharper number sense with adaptive drills.</h2>
-    </header>
+  <main class="page-main">
+    <!-- Active Quiz Mode -->
+    <QuizActive
+      v-if="quizRunning"
+      ref="activeQuizRef"
+      :current-question="currentQuestion"
+      :current-skill-label="currentOperationLabel"
+      :time-left="currentQuizTime"
+      :total-time="quizTime"
+      :correct-count="currentCorrectCount"
+      :attempt-count="logs.length"
+      :current-streak="currentStreak"
+      :auto-advance="autoAdvance"
+      @answer-submitted="handleAnswerSubmitted"
+      @skip-question="handleSkipQuestion"
+      @end-quiz="stopQuiz"
+    />
 
-    <section v-if="quizRunning" class="quiz">
-      <header class="quiz__header">
-        <div class="quiz__timer">
-          <span class="quiz__timer-label">Time left</span>
-          <span class="quiz__timer-value">{{ formattedTimeLeft }}</span>
-        </div>
-        <div class="quiz__meta">
-          <span>Current skill: {{ currentOperationLabel }}</span>
-          <span>Question time: {{ individualTime }}s</span>
-        </div>
-        <button class="secondary" @click="stopQuiz">End session</button>
-      </header>
+    <!-- Quiz Results Screen -->
+    <QuizResults
+      v-else-if="showResults"
+      :logs="logs"
+      :session-duration="quizTime"
+      :difficulty-label="currentDifficultyLabel"
+      :is-new-best="isNewBest"
+      @play-again="playAgain"
+      @change-settings="changeSettings"
+    />
 
-      <div class="quiz__prompt">
-        <span>{{ currentQuestion.prompt }}</span>
-      </div>
+    <!-- Settings / Lobby Screen -->
+    <QuizSettings
+      v-else
+      :operations="operations"
+      :selected-difficulty="selectedDifficulty"
+      :quiz-time="quizTime"
+      :auto-advance="autoAdvance"
+      :personal-bests="personalBests"
+      :error-message="setupError"
+      @update:selected-difficulty="val => selectedDifficulty = val"
+      @update:quiz-time="val => quizTime = val"
+      @update:auto-advance="val => autoAdvance = val"
+      @select-preset="applyPreset"
+      @start="startQuiz"
+    />
 
-      <form class="quiz__form" @submit.prevent="checkAnswer">
-        <label class="quiz__answer-label" for="answer">Your answer</label>
-        <input
-          id="answer"
-          ref="answerField"
-          type="text"
-          autocomplete="off"
-          class="quiz__answer"
-          v-model="answer"
-          @input="clearFeedback"
-        />
-        <button type="submit" class="primary">Check</button>
-      </form>
-      <p v-if="feedback" class="quiz__feedback">{{ feedback }}</p>
-    </section>
-
-    <section v-else-if="showSettingsSection" class="settings">
-      <div class="settings__group">
-        <div class="settings__row settings__row--general">
-          <div class="settings__field">
-            <label class="settings__label" for="difficulty">Difficulty</label>
-            <select id="difficulty" v-model="selectedDifficulty" class="settings__select">
-              <option v-for="option in difficultyOptions" :key="option.id" :value="option.id">
-                {{ option.label }}
-              </option>
-            </select>
-          </div>
-
-          <div class="settings__field">
-            <label class="settings__label" for="quiz-time">Quiz length (seconds)</label>
-            <input
-              id="quiz-time"
-              type="number"
-              min="30"
-              step="15"
-              v-model.number="quizTime"
-              class="settings__input"
-            />
-          </div>
-        </div>
-
-        <div
-          v-for="([key, definition]) in operationEntries"
-          :key="key"
-          class="settings__row settings__row--operation"
-        >
-          <label class="settings__operation-toggle">
-            <input type="checkbox" v-model="operations[key].active" />
-            <span>{{ definition.label }}</span>
-          </label>
-
-          <div class="settings__operation-controls">
-            <div
-              v-for="control in definition.rangeControls"
-              :key="`${key}-${control.key}`"
-              class="settings__operation-control"
-            >
-              <label :for="`${key}-${control.key}`">{{ control.label }}</label>
-              <select
-                class="settings__select"
-                :id="`${key}-${control.key}`"
-                v-model="operations[key][control.key]"
-              >
-                <option
-                  v-for="option in rangeOptionsByType(control.type)"
-                  :key="option.id"
-                  :value="option.id"
-                >
-                  {{ option.label }}
-                </option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <p v-if="setupError" class="settings__error">{{ setupError }}</p>
-
-      <div class="settings__actions">
-        <button class="primary" @click="startQuiz">Start training</button>
-      </div>
-    </section>
-
-    <section v-else class="results">
-      <h3 class="results__title">Latest session</h3>
-      <table v-if="logs.length" class="results__table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Prompt</th>
-            <th>Your answer</th>
-            <th>Correct answer</th>
-            <th>Time (s)</th>
-            <th>Result</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(log, index) in logs" :key="index">
-            <td>{{ index + 1 }}</td>
-            <td>{{ log.prompt }}</td>
-            <td>{{ log.userAnswer }}</td>
-            <td>{{ log.correctAnswer }}</td>
-            <td>{{ log.time }}</td>
-            <td>
-              <span :class="{ 'result--correct': log.correct, 'result--wrong': !log.correct }">
-                {{ log.correct ? '✓' : '✕' }}
-              </span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <p v-else class="results__placeholder">Try to attempt the questions.</p>
-
-      <div class="results__actions">
-        <button type="button" class="primary" @click="playAgain">Play again</button>
-        <button type="button" class="secondary" @click="changeSettings">Change settings</button>
-      </div>
-    </section>
-  </div>
+    <!-- Lifetime Stats Modal -->
+    <StatsModal
+      v-if="showStatsModal"
+      @close="showStatsModal = false"
+    />
+  </main>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import QuizSettings from '../components/quiz/QuizSettings.vue'
+import QuizActive from '../components/quiz/QuizActive.vue'
+import QuizResults from '../components/quiz/QuizResults.vue'
+import StatsModal from '../components/quiz/StatsModal.vue'
 
-const numberRangeOptions = [
-  { id: 'single', label: 'Single-digit (1-9)', min: 1, max: 9 },
-  { id: 'double', label: 'Two-digit (10-99)', min: 10, max: 99 },
-  { id: 'triple', label: 'Three-digit (100-999)', min: 100, max: 999 }
-]
+import {
+  operationDefinitions,
+  difficultyPresets,
+  formatAnswer,
+  randomInt
+} from '../utils/mathGenerators.js'
 
-const percentRangeOptions = [
-  { id: 'percent-basic', label: '5% - 50% (step 5)', min: 5, max: 50, step: 5 },
-  { id: 'percent-advanced', label: '10% - 90% (step 5)', min: 10, max: 90, step: 5 }
-]
+import {
+  getPersonalBests,
+  savePersonalBest,
+  recordSessionLifetime
+} from '../utils/storage.js'
 
-const numberRangeMap = createRangeLookup(numberRangeOptions)
-const percentRangeMap = createRangeLookup(percentRangeOptions)
+import { playStart, playEnd } from '../utils/audio.js'
 
-const operationDefinitions = {
-  addition: {
-    label: 'Addition',
-    symbol: '+',
-    description: 'Combine numbers quickly and reinforce core number facts.',
-    rangeControls: [
-      { key: 'firstRange', label: 'First number', type: 'number' },
-      { key: 'secondRange', label: 'Second number', type: 'number' }
-    ],
-    defaultState: { firstRange: 'double', secondRange: 'double' },
-    generate: state => {
-      const first = pickNumber(state.firstRange)
-      const second = pickNumber(state.secondRange)
-      return {
-        prompt: `${first} + ${second}`,
-        operator: '+',
-        first,
-        second,
-        answer: first + second
-      }
-    }
-  },
-  subtraction: {
-    label: 'Subtraction',
-    symbol: '−',
-    description: 'Strengthen subtraction fluency with controlled ranges.',
-    rangeControls: [
-      { key: 'firstRange', label: 'Starting number', type: 'number' },
-      { key: 'secondRange', label: 'Number to subtract', type: 'number' }
-    ],
-    defaultState: { firstRange: 'double', secondRange: 'double' },
-    generate: state => {
-      let first = pickNumber(state.firstRange)
-      let second = pickNumber(state.secondRange)
-      if (second > first) {
-        ;[first, second] = [second, first]
-      }
-      return {
-        prompt: `${first} − ${second}`,
-        operator: '−',
-        first,
-        second,
-        answer: first - second
-      }
-    }
-  },
-  multiplication: {
-    label: 'Multiplication',
-    symbol: '×',
-    description: 'Train rapid recall of products in your chosen range.',
-    rangeControls: [
-      { key: 'firstRange', label: 'First factor', type: 'number' },
-      { key: 'secondRange', label: 'Second factor', type: 'number' }
-    ],
-    defaultState: { firstRange: 'single', secondRange: 'double' },
-    generate: state => {
-      const first = pickNumber(state.firstRange)
-      const second = pickNumber(state.secondRange)
-      return {
-        prompt: `${first} × ${second}`,
-        operator: '×',
-        first,
-        second,
-        answer: first * second
-      }
-    }
-  },
-  division: {
-    label: 'Division',
-    symbol: '÷',
-    description: 'Master quotients that divide cleanly for mental calculations.',
-    rangeControls: [
-      { key: 'firstRange', label: 'Quotient range', type: 'number' },
-      { key: 'secondRange', label: 'Divisor range', type: 'number' }
-    ],
-    defaultState: { firstRange: 'single', secondRange: 'double' },
-    generate: state => {
-      const quotient = pickNumber(state.firstRange)
-      let divisor = pickNumber(state.secondRange)
-      if (divisor === 0) divisor = 1
-      const dividend = quotient * divisor
-      return {
-        prompt: `${dividend} ÷ ${divisor}`,
-        operator: '÷',
-        first: dividend,
-        second: divisor,
-        answer: quotient
-      }
-    }
-  },
-  percentage: {
-    label: 'Percentages',
-    symbol: '%',
-    description: 'Calculate percentages with tidy, real-world friendly numbers.',
-    rangeControls: [
-      { key: 'firstRange', label: 'Percent range', type: 'percent' },
-      { key: 'secondRange', label: 'Base number range', type: 'number' }
-    ],
-    defaultState: { firstRange: 'percent-basic', secondRange: 'double' },
-    generate: state => {
-      const percent = pickPercent(state.firstRange)
-      const base = pickNumber(state.secondRange)
-      const raw = (percent * base) / 100
-      const answer = Number.isInteger(raw) ? raw : Number(raw.toFixed(2))
-      return {
-        prompt: `${percent}% of ${base}`,
-        operator: '%',
-        first: percent,
-        second: base,
-        answer
-      }
-    }
-  },
-  square: {
-    label: 'Squares',
-    symbol: '²',
-    description: 'Remember key squares for faster calculations.',
-    rangeControls: [{ key: 'firstRange', label: 'Number range', type: 'number' }],
-    defaultState: { firstRange: 'single' },
-    generate: state => {
-      const value = pickNumber(state.firstRange)
-      return {
-        prompt: `${value}²`,
-        operator: '²',
-        first: value,
-        second: null,
-        answer: value * value
-      }
-    }
-  },
-  squareRoot: {
-    label: 'Square Roots',
-    symbol: '√',
-    description: 'Identify perfect squares and their roots instantly.',
-    rangeControls: [{ key: 'firstRange', label: 'Root range', type: 'number' }],
-    defaultState: { firstRange: 'single' },
-    generate: state => {
-      const root = pickNumber(state.firstRange)
-      const radicand = root * root
-      return {
-        prompt: `√${radicand}`,
-        operator: '√',
-        first: radicand,
-        second: null,
-        answer: root
-      }
-    }
-  }
-}
+const props = defineProps({
+  showStats: { type: Boolean, default: false }
+})
 
-const operationEntries = Object.entries(operationDefinitions)
-
-const difficultyPresets = {
-  easy: {
-    id: 'easy',
-    label: 'Easy',
-    description: 'Single-digit addition and subtraction in a 60 second burst.',
-    time: 60,
-    operations: {
-      addition: { active: true, firstRange: 'single', secondRange: 'single' },
-      subtraction: { active: true, firstRange: 'single', secondRange: 'single' }
-    }
-  },
-  medium: {
-    id: 'medium',
-    label: 'Medium',
-    description: 'Two-digit addition/subtraction with single-digit multiplication (90s).',
-    time: 90,
-    operations: {
-      addition: { active: true, firstRange: 'double', secondRange: 'double' },
-      subtraction: { active: true, firstRange: 'double', secondRange: 'double' },
-      multiplication: { active: true, firstRange: 'single', secondRange: 'double' },
-      square: { active: true, firstRange: 'single' }
-    }
-  },
-  hard: {
-    id: 'hard',
-    label: 'Hard',
-    description: 'Mix of multiplication, clean division, squares and percentages (120s).',
-    time: 120,
-    operations: {
-      addition: { active: true, firstRange: 'double', secondRange: 'double' },
-      subtraction: { active: true, firstRange: 'double', secondRange: 'double' },
-      multiplication: { active: true, firstRange: 'double', secondRange: 'double' },
-      division: { active: true, firstRange: 'single', secondRange: 'double' },
-      percentage: { active: true, firstRange: 'percent-basic', secondRange: 'double' },
-      square: { active: true, firstRange: 'double' }
-    }
-  },
-  expert: {
-    id: 'expert',
-    label: 'Expert',
-    description: 'Broad challenge with advanced ranges, roots and percentages (150s).',
-    time: 150,
-    operations: {
-      addition: { active: true, firstRange: 'triple', secondRange: 'triple' },
-      subtraction: { active: true, firstRange: 'triple', secondRange: 'triple' },
-      multiplication: { active: true, firstRange: 'double', secondRange: 'double' },
-      division: { active: true, firstRange: 'double', secondRange: 'double' },
-      percentage: { active: true, firstRange: 'percent-advanced', secondRange: 'triple' },
-      square: { active: true, firstRange: 'double' },
-      squareRoot: { active: true, firstRange: 'double' }
-    }
-  }
-}
-
-const difficultyOptions = [
-  ...Object.values(difficultyPresets),
-  { id: 'custom', label: 'Custom', description: 'Set your own mix of skills and pacing.' }
-]
-
-const operations = reactive(createInitialOperations())
+const showStatsModal = ref(false)
 const selectedDifficulty = ref('easy')
 const quizTime = ref(difficultyPresets.easy.time)
-const currentQuizTime = ref(quizTime.value)
+const autoAdvance = ref(false)
+
+const operations = reactive(createInitialOperations())
 const quizRunning = ref(false)
-const showSettingsSection = ref(true)
-const answer = ref('')
-const feedback = ref('')
+const showResults = ref(false)
 const setupError = ref('')
-const logs = ref([])
+const isNewBest = ref(false)
+const personalBests = ref(getPersonalBests())
+
+const currentQuizTime = ref(quizTime.value)
 const individualTime = ref(0)
 const quizTimer = ref(null)
 const individualTimer = ref(null)
-const isApplyingPreset = ref(false)
-const answerField = ref(null)
+
+const activeQuizRef = ref(null)
+const logs = ref([])
+const currentStreak = ref(0)
 
 const currentQuestion = reactive({
   key: '',
@@ -397,182 +108,159 @@ const currentQuestion = reactive({
   answer: null
 })
 
-applyDifficultyPreset(selectedDifficulty.value)
+applyPreset('easy')
 
-watch(selectedDifficulty, value => {
-  if (value === 'custom') {
-    return
-  }
-  applyDifficultyPreset(value)
+onMounted(() => {
+  window.addEventListener('open-stats-modal', () => {
+    showStatsModal.value = true
+  })
+
+  window.addEventListener('keydown', handleGlobalKey)
 })
 
-watch(
-  () => quizTime.value,
-  () => {
-    if (!isApplyingPreset.value && selectedDifficulty.value !== 'custom') {
-      selectedDifficulty.value = 'custom'
-    }
-  }
-)
-
-watch(
-  operations,
-  () => {
-    if (!isApplyingPreset.value && selectedDifficulty.value !== 'custom') {
-      selectedDifficulty.value = 'custom'
-    }
-  },
-  { deep: true }
-)
-
-watch(
-  () => currentQuizTime.value,
-  value => {
-    if (quizRunning.value && value <= 0) {
-      finishQuiz()
-    }
-  }
-)
-
-const activeOperationCount = computed(
-  () => Object.values(operations).filter(operation => operation.active).length
-)
-
-const selectedDifficultyDescription = computed(() => {
-  if (selectedDifficulty.value === 'custom') {
-    return 'Tweak the operations and ranges below to design your own session.'
-  }
-  return difficultyPresets[selectedDifficulty.value]?.description ?? ''
+onBeforeUnmount(() => {
+  clearInterval(quizTimer.value)
+  clearInterval(individualTimer.value)
+  window.removeEventListener('keydown', handleGlobalKey)
 })
 
-const formattedTimeLeft = computed(() => formatTime(currentQuizTime.value))
+function handleGlobalKey(e) {
+  if (!quizRunning.value && !showResults.value && !showStatsModal.value) {
+    if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT') {
+      e.preventDefault()
+      startQuiz()
+    } else if (e.code === 'Enter' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT') {
+      e.preventDefault()
+      startQuiz()
+    }
+  } else if (showResults.value) {
+    if (e.code === 'Enter') {
+      e.preventDefault()
+      playAgain()
+    }
+  }
+}
 
 const currentOperationLabel = computed(() => {
-  if (!currentQuestion.key) {
-    return '—'
-  }
-  return operationDefinitions[currentQuestion.key]?.label ?? 'Practice'
+  if (!currentQuestion.key) return 'Arithmetic'
+  return operationDefinitions[currentQuestion.key]?.label ?? 'Arithmetic'
+})
+
+const currentDifficultyLabel = computed(() => {
+  if (selectedDifficulty.value === 'custom') return 'Custom'
+  return difficultyPresets[selectedDifficulty.value]?.label ?? 'Standard'
+})
+
+const currentCorrectCount = computed(() => {
+  return logs.value.filter(l => l.correct).length
 })
 
 function createInitialOperations() {
   const initial = {}
-  for (const [key, definition] of Object.entries(operationDefinitions)) {
+  for (const [key, def] of Object.entries(operationDefinitions)) {
     initial[key] = {
       active: false,
-      ...definition.defaultState
+      ...def.defaultState
     }
   }
   return initial
 }
 
-function resetOperationsToDefaults() {
-  for (const [key, definition] of Object.entries(operationDefinitions)) {
-    const state = operations[key]
-    state.active = false
-    Object.assign(state, definition.defaultState)
-  }
-}
+function applyPreset(id) {
+  selectedDifficulty.value = id
+  if (id === 'custom') return
 
-function rangeOptionsByType(type) {
-  return type === 'percent' ? percentRangeOptions : numberRangeOptions
-}
-
-function previewForOperation(key) {
-  const definition = operationDefinitions[key]
-  if (!definition) return ''
-  try {
-    const state = operations[key]
-    const preview = definition.generate(state)
-    return preview.prompt
-  } catch (error) {
-    return ''
-  }
-}
-
-function applyDifficultyPreset(id) {
   const preset = difficultyPresets[id]
-  if (!preset) {
-    return
+  if (!preset) return
+
+  // Reset all to inactive
+  for (const [key, def] of Object.entries(operationDefinitions)) {
+    operations[key].active = false
+    Object.assign(operations[key], def.defaultState)
   }
-  isApplyingPreset.value = true
-  resetOperationsToDefaults()
+
   quizTime.value = preset.time
   currentQuizTime.value = preset.time
+
   Object.entries(preset.operations).forEach(([key, config]) => {
     if (!operations[key]) return
     operations[key].active = config.active ?? true
-    if (config.firstRange) {
-      operations[key].firstRange = config.firstRange
-    }
-    if (config.secondRange) {
-      operations[key].secondRange = config.secondRange
-    }
+    if (config.firstRange) operations[key].firstRange = config.firstRange
+    if (config.secondRange) operations[key].secondRange = config.secondRange
   })
-  isApplyingPreset.value = false
 }
 
 function startQuiz() {
-  if (!activeOperationCount.value) {
-    setupError.value = 'Select at least one operation to begin your training.'
+  const activeCount = Object.values(operations).filter(op => op.active).length
+  if (!activeCount) {
+    setupError.value = 'Please select at least one operation to start training.'
     return
   }
   if (!quizTime.value || quizTime.value < 15) {
-    setupError.value = 'Set the quiz length to at least 15 seconds.'
+    setupError.value = 'Please set quiz length to at least 15 seconds.'
     return
   }
+
   setupError.value = ''
   logs.value = []
+  currentStreak.value = 0
+  isNewBest.value = false
+  showResults.value = false
   quizRunning.value = true
-  showSettingsSection.value = false
-  feedback.value = ''
-  answer.value = ''
   currentQuizTime.value = Math.round(quizTime.value)
+
+  playStart()
   setNextQuestion()
   startQuizTimer()
-  focusAnswerField()
 }
 
 function stopQuiz() {
   finishQuiz()
 }
 
+function finishQuiz() {
+  playEnd()
+  quizRunning.value = false
+  showResults.value = true
+  clearInterval(quizTimer.value)
+  clearInterval(individualTimer.value)
+
+  // Calculate stats & save
+  const correct = currentCorrectCount.value
+  const total = logs.value.length
+  const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0
+  const qpm = quizTime.value > 0 ? (correct / quizTime.value) * 60 : 0
+
+  const res = savePersonalBest(selectedDifficulty.value, {
+    score: correct,
+    qpm,
+    accuracy
+  })
+  isNewBest.value = res.isNewBest
+  personalBests.value = getPersonalBests()
+
+  recordSessionLifetime(total, correct)
+}
+
 function playAgain() {
-  if (quizRunning.value) {
-    return
-  }
   startQuiz()
 }
 
 function changeSettings() {
-  if (quizRunning.value) {
-    return
-  }
-  logs.value = []
-  feedback.value = ''
-  setupError.value = ''
-  answer.value = ''
-  individualTime.value = 0
-  const baseTime = typeof quizTime.value === 'number' && Number.isFinite(quizTime.value)
-    ? quizTime.value
-    : 0
-  currentQuizTime.value = Math.max(0, Math.round(baseTime))
-  resetCurrentQuestion()
-  showSettingsSection.value = true
-}
-
-function finishQuiz() {
+  showResults.value = false
   quizRunning.value = false
-  showSettingsSection.value = false
-  clearInterval(quizTimer.value)
-  clearInterval(individualTimer.value)
-  quizTimer.value = null
-  individualTimer.value = null
+  logs.value = []
+  currentStreak.value = 0
+  setupError.value = ''
 }
 
 function startQuizTimer() {
   clearInterval(quizTimer.value)
   quizTimer.value = window.setInterval(() => {
     currentQuizTime.value = Math.max(0, currentQuizTime.value - 1)
+    if (currentQuizTime.value <= 0) {
+      finishQuiz()
+    }
   }, 1000)
 }
 
@@ -585,506 +273,74 @@ function startIndividualTimer() {
 }
 
 function setNextQuestion() {
-  const question = generateQuestion()
-  if (!question) {
+  const q = generateQuestion()
+  if (!q) {
     finishQuiz()
     return
   }
-  currentQuestion.key = question.key
-  currentQuestion.prompt = question.prompt
-  currentQuestion.operator = question.operator ?? ''
-  currentQuestion.first = question.first ?? null
-  currentQuestion.second = question.second ?? null
-  currentQuestion.answer = question.answer
+  currentQuestion.key = q.key
+  currentQuestion.prompt = q.prompt
+  currentQuestion.operator = q.operator ?? ''
+  currentQuestion.first = q.first ?? null
+  currentQuestion.second = q.second ?? null
+  currentQuestion.answer = q.answer
   startIndividualTimer()
 }
 
 function generateQuestion() {
-  const available = Object.entries(operations)
-    .filter(([, value]) => value.active)
-    .map(([key]) => key)
+  const activeKeys = Object.entries(operations)
+    .filter(([, v]) => v.active)
+    .map(([k]) => k)
 
-  if (!available.length) {
-    return null
-  }
+  if (!activeKeys.length) return null
 
-  const selectedKey = available[randomInt(0, available.length - 1)]
-  const definition = operationDefinitions[selectedKey]
+  const selectedKey = activeKeys[randomInt(0, activeKeys.length - 1)]
+  const def = operationDefinitions[selectedKey]
   const state = operations[selectedKey]
-  if (!definition || !state) {
-    return null
-  }
+  if (!def || !state) return null
 
-  const generated = definition.generate(state)
+  const gen = def.generate(state)
   return {
-    ...generated,
+    ...gen,
     key: selectedKey
   }
 }
 
-function checkAnswer() {
-  if (!quizRunning.value) {
-    return
-  }
-  const userInput = answer.value.trim()
-  if (userInput === '') {
-    feedback.value = 'Enter an answer to continue.'
-    return
-  }
-  const numericInput = Number(userInput)
-  const expected = currentQuestion.answer
-  const correct = !Number.isNaN(numericInput) && isCorrectAnswer(numericInput, expected)
-
+function handleAnswerSubmitted({ userAnswer, correct }) {
   logs.value.unshift({
     prompt: currentQuestion.prompt,
-    userAnswer: userInput,
-    correctAnswer: formatAnswer(expected),
+    operatorLabel: currentOperationLabel.value,
+    userAnswer,
+    correctAnswer: formatAnswer(currentQuestion.answer),
     time: individualTime.value,
     correct
   })
 
   if (correct) {
-    feedback.value = 'Correct!'
-    answer.value = ''
+    currentStreak.value += 1
     setNextQuestion()
   } else {
-    feedback.value = 'Keep trying!'
+    currentStreak.value = 0
   }
 }
 
-function clearFeedback() {
-  feedback.value = ''
-}
-
-function focusAnswerField() {
-  requestAnimationFrame(() => {
-    answerField.value?.focus()
+function handleSkipQuestion() {
+  logs.value.unshift({
+    prompt: currentQuestion.prompt,
+    operatorLabel: currentOperationLabel.value,
+    userAnswer: 'Skipped',
+    correctAnswer: formatAnswer(currentQuestion.answer),
+    time: individualTime.value,
+    correct: false
   })
+  currentStreak.value = 0
+  setNextQuestion()
 }
-
-function resetCurrentQuestion() {
-  currentQuestion.key = ''
-  currentQuestion.prompt = ''
-  currentQuestion.operator = ''
-  currentQuestion.first = null
-  currentQuestion.second = null
-  currentQuestion.answer = null
-}
-
-function formatTime(totalSeconds) {
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  if (minutes <= 0) {
-    return `${seconds}s`
-  }
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`
-}
-
-function formatAnswer(value) {
-  if (Number.isInteger(value)) {
-    return value.toString()
-  }
-  return value.toFixed(2)
-}
-
-function isCorrectAnswer(userValue, expectedValue) {
-  if (Number.isInteger(expectedValue)) {
-    return Math.round(userValue) === expectedValue
-  }
-  return Math.abs(userValue - expectedValue) <= 0.01
-}
-
-function pickNumber(rangeId) {
-  const range = numberRangeMap[rangeId] || numberRangeOptions[0]
-  return randomInt(range.min, range.max)
-}
-
-function pickPercent(rangeId) {
-  const range = percentRangeMap[rangeId] || percentRangeOptions[0]
-  const step = range.step ?? 1
-  const choices = Math.floor((range.max - range.min) / step)
-  const offset = randomInt(0, choices)
-  return range.min + offset * step
-}
-
-function randomInt(min, max) {
-  const low = Math.ceil(min)
-  const high = Math.floor(max)
-  return Math.floor(Math.random() * (high - low + 1)) + low
-}
-
-function createRangeLookup(options) {
-  return options.reduce((accumulator, option) => {
-    accumulator[option.id] = option
-    return accumulator
-  }, {})
-}
-
-onBeforeUnmount(() => {
-  clearInterval(quizTimer.value)
-  clearInterval(individualTimer.value)
-})
 </script>
 
 <style scoped>
-.page {
-  padding: 40px 5vw 80px;
-  color: #f7f5f0;
-}
-
-.hero {
-  text-align: center;
-  margin-bottom: 32px;
-}
-
-.hero__eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 6px;
-  font-size: 14px;
-  color: #a1a6c4;
-  margin: 0 0 8px;
-}
-
-.hero__title {
-  font-family: 'Cinzel', serif;
-  font-size: 54px;
-  color: #ffb347;
-  margin: 0;
-}
-
-.hero__subtitle {
-  font-weight: 400;
-  margin: 16px 0 0;
-  color: #dcd5f5;
-}
-
-.settings {
-  background: rgba(16, 16, 28, 0.7);
-  border-radius: 18px;
-  padding: 24px;
-  margin-bottom: 32px;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
-}
-
-
-.settings__group {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.settings__row {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 16px;
-  padding: 12px 0;
-}
-
-.settings__row--general {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
-}
-
-.settings__row--operation {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
-}
-
-.settings__field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.settings__label {
-  font-weight: 600;
-}
-
-.settings__operation-toggle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 600;
-}
-
-.settings__operation-controls {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
+.page-main {
+  flex: 1;
   width: 100%;
-}
-
-.settings__operation-control {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  width: 100%;
-}
-
-.settings__operation-control label {
-  font-size: 16px;
-  color: #f7f5f0;
-}
-
-.settings__select,
-.settings__input {
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: none;
-  background: rgba(255, 255, 255, 0.1);
-  color: inherit;
-  width: 100%;
-  min-width: 0;
-  max-width: none;
-  flex: 1 1 auto;
-}
-
-.settings__input {
-  width: auto;
-}
-
-.settings__select:focus,
-.settings__input:focus,
-.quiz__answer:focus {
-  outline: 2px solid #ffb347;
-}
-
-.settings__description {
-  margin: 0 0 16px;
-  color: #d3d8f5;
-}
-
-.settings__hint {
-  margin: 0;
-  font-size: 14px;
-  color: #c3c9e6;
-}
-
-.settings__actions {
-  text-align: center;
-  margin-top: 16px;
-}
-
-.settings__error {
-  margin: 8px 0 0;
-  color: #ff8a80;
-  text-align: center;
-}
-
-@media (min-width: 1000px) {
-  .settings__row {
-    flex-direction: row;
-    align-items: center;
-  }
-
-  .settings__row--general {
-    grid-template-columns: repeat(2, minmax(220px, 1fr));
-  }
-
-  .settings__row--operation {
-    grid-template-columns: minmax(180px, 1fr) repeat(2, minmax(160px, 2fr));
-    align-items: center;
-    column-gap: 24px;
-    row-gap: 16px;
-  }
-
-  .settings__field {
-    max-width: 280px;
-  }
-
-  .settings__operation-toggle {
-    width: auto;
-    min-width: 180px;
-  }
-
-  .settings__operation-controls {
-    display: contents;
-  }
-
-  .settings__operation-control {
-    flex-direction: row;
-    align-items: center;
-    width: 100%;
-    white-space: nowrap;
-  }
-
-  .settings__select,
-  .settings__input {
-    width: auto;
-    min-width: 140px;
-    max-width: 220px;
-    flex: 0 1 auto;
-  }
-}
-
-.primary,
-.secondary {
-  cursor: pointer;
-  border: none;
-  border-radius: 999px;
-  padding: 12px 28px;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.primary {
-  background: linear-gradient(135deg, #ffb347, #ffcc33);
-  color: #221a2d;
-}
-
-.secondary {
-  background: rgba(255, 255, 255, 0.16);
-  color: inherit;
-}
-
-.quiz {
-  background: rgba(16, 16, 28, 0.7);
-  border-radius: 18px;
-  padding: 32px;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
-}
-
-.quiz__header {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.quiz__timer {
-  display: flex;
-  flex-direction: column;
-  font-size: 18px;
-}
-
-.quiz__timer-label {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  color: #a3a7c6;
-}
-
-.quiz__timer-value {
-  font-size: 28px;
-  font-weight: 700;
-}
-
-.quiz__meta {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 14px;
-  color: #c4c8e4;
-}
-
-.quiz__prompt {
-  text-align: center;
-  font-size: 42px;
-  font-weight: 700;
-  margin-bottom: 24px;
-}
-
-.quiz__form {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.quiz__answer-label {
-  font-size: 14px;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  color: #a3a7c6;
-}
-
-.quiz__answer {
-  width: 200px;
-  font-size: 28px;
-  text-align: center;
-  padding: 8px 12px;
-  border-radius: 12px;
-  border: none;
-  background: rgba(255, 255, 255, 0.1);
-  color: inherit;
-}
-
-.quiz__feedback {
-  margin-top: 12px;
-  text-align: center;
-  font-weight: 600;
-}
-
-.results {
-  margin-top: 40px;
-}
-
-.results__title {
-  margin-bottom: 16px;
-}
-
-.results__table {
-  width: 100%;
-  border-collapse: collapse;
-  background: rgba(16, 16, 28, 0.7);
-  border-radius: 18px;
-  overflow: hidden;
-}
-
-.results__table th,
-.results__table td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.results__table thead {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.results__placeholder {
-  margin: 24px 0;
-  text-align: center;
-  color: #c4c8e4;
-}
-
-.results__actions {
-  margin-top: 16px;
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.result--correct {
-  color: #7cff8b;
-}
-
-.result--wrong {
-  color: #ff8a80;
-}
-
-@media (max-width: 720px) {
-  .page {
-    padding: 24px 16px 48px;
-  }
-
-  .quiz__prompt {
-    font-size: 32px;
-  }
-
-  .quiz__form {
-    width: 100%;
-  }
-
-  .quiz__answer {
-    width: 100%;
-  }
 }
 </style>

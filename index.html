@@ -1,13 +1,106 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
-    <title>Mental Math Trainer</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+<html lang="en" data-theme="dark">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Primary Meta Tags -->
+  <title>Mental Math Trainer | Sharp Mental Arithmetic Drills by Imran Pollob</title>
+  <meta name="title" content="Mental Math Trainer | Sharp Mental Arithmetic Drills by Imran Pollob" />
+  <meta name="description"
+    content="Master rapid mental math with adaptive arithmetic drills. Practice addition, subtraction, multiplication, division, percentages, squares, and square roots with real-time pace tracking, audio cues, and zero backend." />
+  <meta name="keywords"
+    content="mental math, math trainer, speed math, arithmetic practice, mental arithmetic drills, zetamac alternative, math flashcards, Imran Pollob" />
+  <meta name="author" content="Imran Pollob" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://imranpollob.github.io/mental-math-trainer/" />
+
+  <!-- Theme Color & Mobile App Meta -->
+  <meta name="theme-color" content="#0d9488" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#071311" media="(prefers-color-scheme: dark)" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="MentalMath" />
+
+  <!-- Favicon & Icons -->
+  <link rel="icon" type="image/png" sizes="64x64" href="./favicon.png" />
+  <link rel="icon" type="image/x-icon" href="./favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+
+  <!-- Google Fonts Preconnect -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://imranpollob.github.io/mental-math-trainer/" />
+  <meta property="og:site_name" content="Mental Math Trainer — Imran Pollob" />
+  <meta property="og:title" content="Mental Math Trainer | Sharp Mental Arithmetic Drills by Imran Pollob" />
+  <meta property="og:description"
+    content="Master rapid mental math with adaptive arithmetic drills. High-performance, keyboard-first, zero-backend trainer by Imran Pollob." />
+  <meta property="og:image" content="https://imranpollob.github.io/mental-math-trainer/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Mental Math Trainer banner featuring Imran Pollob monogram logo" />
+
+  <!-- Twitter Cards -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content="https://imranpollob.github.io/mental-math-trainer/" />
+  <meta name="twitter:title" content="Mental Math Trainer | Sharp Mental Arithmetic Drills by Imran Pollob" />
+  <meta name="twitter:description"
+    content="Master rapid mental math with adaptive arithmetic drills. High-performance, keyboard-first, zero-backend trainer by Imran Pollob." />
+  <meta name="twitter:image" content="https://imranpollob.github.io/mental-math-trainer/og-image.png" />
+  <meta name="twitter:creator" content="@imranpollob" />
+
+  <!-- Structured Data (JSON-LD) -->
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Mental Math Trainer",
+      "url": "https://imranpollob.github.io/mental-math-trainer/",
+      "description": "Master rapid mental arithmetic with customizable speed drills, adaptive operations, personal best tracking, and audio feedback.",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "All modern browsers",
+      "browserRequirements": "Requires JavaScript",
+      "inLanguage": "en",
+      "isAccessibleForFree": true,
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "author": {
+        "@type": "Person",
+        "name": "Imran Pollob",
+        "url": "https://github.com/imranpollob"
+      }
+    }
+    </script>
+
+  <!-- GitHub Pages SPA Redirect Handler (handles redirect from 404.html) -->
+  <script>
+    (function (l) {
+      if (l.search[1] === '/') {
+        var decoded = l.search.slice(1).split('&').map(function (s) {
+          return s.replace(/~and~/g, '&')
+        }).join('?');
+        window.history.replaceState(null, null,
+          l.pathname.slice(0, -1) + decoded + l.hash
+        );
+      }
+    }(window.location))
+  </script>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+
 </html>
