@@ -9,8 +9,6 @@
       </p>
 
       <div class="footer__meta">
-        <span class="footer__license">Licensed under MIT</span>
-        <span class="footer__sep">•</span>
         <a
           href="https://github.com/imranpollob/mental-math-trainer"
           target="_blank"
