@@ -110,7 +110,20 @@ onMounted(() => {
   document.documentElement.setAttribute('data-theme', currentTheme.value)
   isMuted.value = getMuted()
   streakInfo.value = getStreakInfo()
+  adoptLauncherToggle()
 })
+
+// launcher.js fetches its tool list independently of Vue. If that finishes
+// before this component mounts, [data-brand-launcher] doesn't exist yet and
+// the script falls back to a floating top-left button. Move it into the navbar.
+function adoptLauncherToggle() {
+  const slot = document.querySelector('.navbar__actions [data-brand-launcher]')
+  const floating = document.querySelector('.bl-toggle.bl-floating')
+  if (slot && floating) {
+    floating.classList.remove('bl-floating')
+    slot.replaceWith(floating)
+  }
+}
 
 function toggleTheme() {
   currentTheme.value = currentTheme.value === 'dark' ? 'light' : 'dark'
